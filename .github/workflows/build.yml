@@ -1,0 +1,51 @@
+name: Instaladores Neto Vocal
+
+on:
+  workflow_dispatch:
+
+env:
+  NETO_VERSION: "0.3.0"
+  JUCE_TAG: "8.0.12"
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Baixar JUCE
+        run: git clone --depth 1 --branch "$JUCE_TAG" https://github.com/juce-framework/JUCE.git JUCE
+      - name: Compilar (Apple Silicon + Intel)
+        run: |
+          cmake -B build -DJUCE_PATH="$GITHUB_WORKSPACE/JUCE" -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+          cmake --build build --config Release --target NetoVocal_VST3 NetoVocal_AU -j 4
+      - name: Criar instalador (.pkg)
+        run: bash installer/mac/build_pkg.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NetoVocal-macOS
+          path: dist/*.pkg
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencias
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
+            libxinerama-dev libxrandr-dev libxrender-dev libfreetype-dev libfontconfig1-dev libgl1-mesa-dev
+      - name: Baixar JUCE
+        run: git clone --depth 1 --branch "$JUCE_TAG" https://github.com/juce-framework/JUCE.git JUCE
+      - name: Compilar
+        run: |
+          cmake -B build -DJUCE_PATH="$GITHUB_WORKSPACE/JUCE" -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release --target NetoVocal_VST3 -j 4
+      - name: Criar instalador (.deb e .tar.gz)
+        run: bash installer/linux/build_deb.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NetoVocal-Linux
+          path: |
+            dist/*.deb
+            dist/*.tar.gz
